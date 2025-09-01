@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram + ChatGPT Trainer for algorithm practice
-Compatible with python-telegram-bot v20+ and Python 3.11
+Compatible with python-telegram-bot v13.15 and Python 3.8+
 """
 
 import os
@@ -10,9 +10,8 @@ import json
 import random
 from apscheduler.schedulers.background import BackgroundScheduler
 import openai
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram import Update, ParseMode
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # ---------- Config ----------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -123,87 +122,3 @@ def ask_chatgpt_evaluate(problem, user_approach, user_answer, expected):
                 {"role":"system","content":system_prompt},
                 {"role":"user","content":user_prompt}
             ],
-            max_tokens=400, 
-            temperature=0
-        )
-        text = resp["choices"][0]["message"]["content"].strip()
-        import re
-        m = re.search(r"(\{.*\})", text, re.DOTALL)
-        json_text = m.group(1) if m else text
-        return json.loads(json_text)
-    except Exception as e:
-        logger.exception("ChatGPT evaluation failed: %s", e)
-        return {"approach_ok": False, "feedback": "OpenAI error", "detailed": ""}
-
-# ---------- Telegram helpers ----------
-def make_question_text(problem):
-    txt = f"*Algorithm:* `{problem['alg']}`\n*Prompt:* {problem['prompt']}\n"
-    txt += f"*Input:* `{problem['input']}`\n"
-    if 'target' in problem:
-        txt += f"*Target:* `{problem['target']}`\n"
-    txt += "\nReply with numeric answer (line1) and optional one-line approach (line2).\nExample:\n`11\nKadane: keep current & max sum`"
-    return txt
-
-def pick_random_problem():
-    return random.choice(PROBLEMS)
-
-def send_question(chat_id, context: CallbackContext):
-    problem = pick_random_problem()
-    current_question[chat_id] = problem
-    context.bot.send_message(chat_id=chat_id, text=make_question_text(problem), parse_mode=ParseMode.MARKDOWN)
-
-# ---------- Command handlers ----------
-def start(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    registered_chats.add(chat_id)
-    update.message.reply_text("Registered! Use /next for a question, /stop to unregister, /explain for explanation.")
-    send_question(chat_id, context)
-
-def stop(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    registered_chats.discard(chat_id)
-    update.message.reply_text("Unregistered. Send /start to register again.")
-
-def next_cmd(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    registered_chats.add(chat_id)
-    send_question(chat_id, context)
-
-def explain(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    problem = current_question.get(chat_id)
-    if not problem:
-        update.message.reply_text("No active question. Use /next.")
-        return
-    expected = compute_expected(problem)
-    expl = f"Explanation (expected result = {expected}) for algorithm `{problem['alg']}`."
-    update.message.reply_text(expl)
-
-def handle_message(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    text = update.message.text.strip()
-    problem = current_question.get(chat_id)
-    if not problem:
-        update.message.reply_text("No active question. Use /next.")
-        return
-    lines = [l for l in text.splitlines() if l.strip()]
-    answer_line = lines[0].strip() if lines else ""
-    approach_line = lines[1].strip() if len(lines) > 1 else ""
-    parsed_number = None
-    try:
-        parsed_number = int(answer_line.split()[0])
-    except:
-        import re
-        m = re.search(r"-?\d+", answer_line)
-        if m: parsed_number = int(m.group())
-    expected = compute_expected(problem)
-    numeric_ok = (parsed_number == expected) if expected is not None else (parsed_number is None)
-    cgpt_eval = ask_chatgpt_evaluate(problem, approach_line or "<no approach>", parsed_number, expected)
-    reply_lines = []
-    reply_lines.append("✅ Numeric correct." if numeric_ok else f"❌ Numeric incorrect (expected {expected})")
-    approach_ok = cgpt_eval.get("approach_ok", False)
-    feedback = cgpt_eval.get("feedback", "")
-    detailed = cgpt_eval.get("detailed", "")
-    reply_lines.append("💡 Approach: Looks good. " + feedback if approach_ok else "💡 Approach: Missing key ideas. " + feedback)
-    if detailed: reply_lines.append("\nExplanation:\n" + detailed)
-    reply_lines.append("\nSend /explain for deterministic explanation or /next for another_
