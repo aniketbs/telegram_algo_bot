@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram + ChatGPT Trainer for algorithm practice
+Compatible with python-telegram-bot v20+ and Python 3.11
 """
 
 import os
@@ -11,7 +12,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import openai
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
 
 # ---------- Config ----------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -205,33 +206,4 @@ def handle_message(update: Update, context: CallbackContext):
     detailed = cgpt_eval.get("detailed", "")
     reply_lines.append("💡 Approach: Looks good. " + feedback if approach_ok else "💡 Approach: Missing key ideas. " + feedback)
     if detailed: reply_lines.append("\nExplanation:\n" + detailed)
-    reply_lines.append("\nSend /explain for deterministic explanation or /next for another problem.")
-    update.message.reply_text("\n".join(reply_lines))
-
-# ---------- Scheduler ----------
-scheduler = BackgroundScheduler()
-def daily_job(context: CallbackContext = None):
-    for chat_id in list(registered_chats):
-        try:
-            send_question(chat_id, bot_updater.dispatcher)
-        except Exception as e:
-            logger.exception("Failed to send to %s: %s", chat_id, e)
-
-# ---------- Main ----------
-def main():
-    global bot_updater
-    bot_updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-    dp = bot_updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("stop", stop))
-    dp.add_handler(CommandHandler("next", next_cmd))
-    dp.add_handler(CommandHandler("explain", explain))
-    dp.add_handler(MessageHandler(Filters.text & (~Filters.command), handle_message))
-    scheduler.add_job(lambda: daily_job(bot_updater), 'cron', hour=DAILY_HOUR, minute=DAILY_MINUTE)
-    scheduler.start()
-    bot_updater.start_polling()
-    logger.info("Bot started.")
-    bot_updater.idle()
-
-if __name__ == "__main__":
-    main()
+    reply_lines.append("\nSend /explain for deterministic explanation or /next for another_
