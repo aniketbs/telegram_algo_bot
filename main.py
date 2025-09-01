@@ -18,7 +18,6 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DAILY_HOUR = int(os.environ.get("DAILY_HOUR", "9"))
 DAILY_MINUTE = int(os.environ.get("DAILY_MINUTE", "0"))
-# ---------- End config ----------
 
 if not TELEGRAM_TOKEN:
     raise RuntimeError("Set TELEGRAM_TOKEN env var.")
@@ -30,11 +29,11 @@ openai.api_key = OPENAI_API_KEY
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# In-memory storage
+# ---------- In-memory storage ----------
 registered_chats = set()
 current_question = {}  # chat_id -> problem
 
-# Problem bank
+# ---------- Problem bank ----------
 PROBLEMS = [
     {"id":"kadane_1", "alg":"kadane", "prompt":"Find the maximum subarray sum.", "input":[2,3,-8,7,-1,2,3]},
     {"id":"kadane_2", "alg":"kadane", "prompt":"Find the maximum subarray sum.", "input":[1,-2,3,5,-1,2]},
@@ -109,16 +108,4 @@ def ask_chatgpt_evaluate(problem, user_approach, user_answer, expected):
     user_prompt = (
         f"Problem: {problem['prompt']}\n"
         f"Input: {problem['input']}\n"
-        + (f"Target: {problem.get('target')}\n" if 'target' in problem else "")
-        + f"Expected: {expected}\n"
-        + f"Student answer: {user_answer}\n"
-        + f"Approach: {user_approach}"
-    )
-
-    try:
-        resp = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role":"system","content":system_prompt},
-                {"role":"user","content":user_prompt}
-            ],
+        + (f"Target: {problem.
